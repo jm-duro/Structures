@@ -1,0 +1,24 @@
+include std/dll.e
+include std/machine.e
+include std/console.e
+include common.e
+include structs.e
+
+sequence myStructure = 
+"struct _mydata {" &
+"  int a;" &
+"  float b;" &
+"  char c;" &
+"} bar;"
+
+f_debug = open("debug.log", "w")
+debug_level = VERBOSE
+
+sequence struct = allocateStructure(myStructure)
+writeStructure(struct, {allocate_string("A string"), 12, 25.2} )
+sequence s = readStructure(struct)
+printf(1, "s2[1] = %s, s2[2] = %d, s2[3] = %4.1f\n", {peek_string(s[1]), s[2], s[3]})
+freeStructure(struct)
+
+close(f_debug)
+maybe_any_key()
