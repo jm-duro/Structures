@@ -7,13 +7,6 @@ include extract_vars.e
 
 sequence myStructure = 
 "struct _mydata {" &
-"  int a;" &
-"  float b;" &
-"  char c;" &
-"} bar;"
-/*
-sequence myStructure = 
-"struct _mydata {" &
 "    int which_one;" &
 "    union _data {" &
 "            int a;" &
@@ -21,13 +14,6 @@ sequence myStructure =
 "            char c;" &
 "    } foo;" &
 "} bar;"
-*/
-sequence s3 = "switch (bar.which_one)" &
-"{" &
-"   case INTEGER  :  /* access bar.foo.a;*/ break;" &
-"   case FLOATING :  /* access bar.foo.b;*/ break;" &
-"   case CHARACTER:  /* access bar.foo.c;*/ break;" &
-"}"
 
 constant SU_TYPE=1, SU_TYPE_NAME=2, SU_VAR_NAME=3, SU_BLOCK=4
 constant STRUCT=1, UNION=2
@@ -167,7 +153,7 @@ end function
 
 --------------------------------------------------------------------------------
 
-f_debug = open("debug.log", "w")
+f_debug = open("debug2.log", "w")
 debug_level = DEBUG
 -- error_level = WARNING
 -- debug_show_prefix = 0

@@ -6,18 +6,31 @@ include structs.e
 
 sequence myStructure = 
 "struct _mydata {" &
-"  int a;" &
+"  pointer a;" &
 "  float b;" &
 "  char c;" &
 "} bar;"
 
 f_debug = open("debug.log", "w")
-debug_level = VERBOSE
+debug_level = DEBUG
 
 sequence struct = allocateStructure(myStructure)
-writeStructure(struct, {allocate_string("A string"), 12, 25.2} )
+writeStructure(struct, {allocate_string("A string"), 25.2, 'a'} )
 sequence s = readStructure(struct)
-printf(1, "s2[1] = %s, s2[2] = %d, s2[3] = %4.1f\n", {peek_string(s[1]), s[2], s[3]})
+printf(1, "%s = \"%s\", %s = %4.1f, %s = '%s'\n", {
+  struct[SU_DEF][1][VAR_NAME], peek_string(s[1]),
+  struct[SU_DEF][2][VAR_NAME], s[2],
+  struct[SU_DEF][3][VAR_NAME], s[3]
+})
+writeVariable(struct, "b", 40.0)
+s = readStructure(struct)
+atom b = readVariable(struct, "b")
+printf(1, "b = %4.1f\n", {b})
+printf(1, "%s = \"%s\", %s = %4.1f, %s = '%s'\n", {
+  struct[SU_DEF][1][VAR_NAME], peek_string(s[1]),
+  struct[SU_DEF][2][VAR_NAME], s[2],
+  struct[SU_DEF][3][VAR_NAME], s[3]
+})
 freeStructure(struct)
 
 close(f_debug)

@@ -115,6 +115,7 @@ public constant TYPE_DEFINITION = {
 public constant DEF_TYPE=1, DEF_TYPE_NAME=2, DEF_VAR_NAME=3, DEF_BLOCK=4
 public constant STRUCT=1, UNION=2
 public constant SU_NAME=1, SU_DEF=2, SU_ADDRESS=3
+public constant VAR_OFFSET=1, VAR_NAME=2, VAR_BITS=3, VAR_TYPE=4
 
 --------------------------------------------------------------------------------
 
@@ -268,104 +269,161 @@ public function allocateStructure(sequence struct)
   sequence definition = {}
   for i = 1 to length(def[DEF_BLOCK]) do
     sequence vars = extract_vars(def[DEF_BLOCK][i], "<type> <name>[:<bits>];")
-    dump_array(vars, "vars", DEBUG)
+    dump_array(vars, "vars", VERBOSE)
     object cType = vlookup("<type>", vars, KEY, VALUE)
     if atom(cType) then
       error_message("allocateStructure: Incorrect variable type!", CRITICAL)
     end if
+    object cName = vlookup("<name>", vars, KEY, VALUE)
+    if atom(cName) then
+      error_message("allocateStructure: Incorrect variable name!", CRITICAL)
+    end if
+    object cBits = vlookup("<bits>", vars, KEY, VALUE)
     object varType = vlookup(cType, ALIASES, 1, 2)
     if varType = 0 then
       error_message(sprintf("allocateStructure: No corresponding EU type found for C type %s!", {cType}), CRITICAL)
     end if
     atom eutype = vlookup(varType, TYPE_DEFINITION, 1, eu_version+1)
-    definition = append(definition, {lg, eutype})
+    log_printf("allocateStructure: lg = %d, euType = #%08x\n", {lg, cName, cBits, eutype}, DEBUG)
+    definition = append(definition, {lg, cName, cBits, eutype})
     lg += sizeof(eutype)
   end for
   if lg then p = allocate(lg) end if
-  log_printf("allocateStructure: {%s, %s, %d)\n", {def[DEF_VAR_NAME], object_dump(def[DEF_BLOCK]), p}, VERBOSE)
+  log_printf("allocateStructure: {%s, %s, %d)\n", {def[DEF_VAR_NAME], object_dump(definition), p}, DEBUG)
   return {def[DEF_VAR_NAME], definition, p}
 end function
 
 -----------------------------------------------------------------------------
 
+procedure pokeVariable(atom p, atom ctype, object value)
+  if (ctype = #01000001) or (ctype = #02000001) then  -- 8-bit signed, unsigned
+    poke(p, value)
+  elsif (ctype = #01000002) or (ctype = #02000002) then  -- 16-bit signed, unsigned
+    poke2(p, value)
+  elsif (ctype = #01000004) or (ctype = #02000004) then  -- 32-bit signed, unsigned
+    poke4(p, value)
+  elsif (ctype = #01000008) or (ctype = #02000008) then  -- 64-bit signed, unsigned
+    poke8(p, value)
+  elsif ctype = #03000001 then       -- pointer
+    if sizeof( C_POINTER )=4 then     -- 32-bit
+      poke4(p, value)
+    elsif sizeof( C_POINTER )=8 then  -- 64-bit
+      poke8(p, value)
+    end if
+  elsif ctype = #03000002 then       -- 64-bit integer
+    poke8(p, value)
+  elsif ctype = #03000004 then       -- 32-bit float
+    poke(p, atom_to_float32(value))
+  elsif ctype = #03000008 then       -- 64-bit float
+    poke(p, atom_to_float64(value))
+  end if
+end procedure
+
+-----------------------------------------------------------------------------
+
 -- writes data in memory according to a structure definition
 -- automatically sizes structure to OEU version and OS Architecture
--- ex: writeStructure(p, {T_HANDLE, T_INT, T_INT}, {hwnd, 12, 25} )
+-- ex: writeStructure(struct, {hwnd, 12, 25} )
 public procedure writeStructure(sequence struct, sequence values)
   log_printf("writeStructure(%s, %s)\n", {object_dump(struct), object_dump(values)}, EXTENSIVE)
   for i = 1 to length(struct[SU_DEF]) do
-    integer offset = struct[SU_DEF][i][1]
-    atom ctype = struct[SU_DEF][i][2]
+    integer offset = struct[SU_DEF][i][VAR_OFFSET]
+    atom ctype = struct[SU_DEF][i][VAR_TYPE]
     atom p = struct[SU_ADDRESS] + offset
-    if (ctype = #01000001) or (ctype = #02000001) then  -- 8-bit signed, unsigned
-      poke(p, values[i])
-    elsif (ctype = #01000002) or (ctype = #02000002) then  -- 16-bit signed, unsigned
-      poke2(p, values[i])
-    elsif (ctype = #01000004) or (ctype = #02000004) then  -- 32-bit signed, unsigned
-      poke4(p, values[i])
-    elsif (ctype = #01000008) or (ctype = #02000008) then  -- 64-bit signed, unsigned
-      poke8(p, values[i])
-    elsif ctype = #03000001 then       -- pointer
-      if sizeof( C_POINTER )=4 then     -- 32-bit
-        poke4(p, values[i])
-      elsif sizeof( C_POINTER )=8 then  -- 64-bit
-        poke8(p, values[i])
-      end if
-    elsif ctype = #03000002 then       -- 64-bit integer
-      poke8(p, values[i])
-    elsif ctype = #03000004 then       -- 32-bit float
-      poke(p, atom_to_float32(values[i]))
-    elsif ctype = #03000008 then       -- 64-bit float
-      poke(p, atom_to_float64(values[i]))
-    end if
-    p += sizeof(ctype)
+    pokeVariable(p, ctype, values[i])
   end for
 end procedure
 
 -----------------------------------------------------------------------------
 
--- reads data in memory according to a structure definition
--- automatically sizes structure to OEU version and OS Architecture
--- ex: sequence s = readStructure(p, {T_HANDLE, T_INT, T_INT} )
-public function readStructure(sequence struct)
-  log_printf("readStructure(%s)\n", {object_dump(struct)}, EXTENSIVE)
- sequence  result = {}
-  for i = 1 to length(struct[SU_DEF]) do
-    integer offset = struct[SU_DEF][i][1]
-    atom ctype = struct[SU_DEF][i][2]
-    atom p = struct[SU_ADDRESS] + offset
+public procedure writeVariable(sequence struct, sequence variable, object value)
+  log_printf("writeVariable(%s, %s, %s)\n", {object_dump(struct), object_dump(variable), object_dump(value)}, EXTENSIVE)
+  /*
+  -- bits is not supported yet so no need to extract vars
+  sequence vars = extract_vars(element, "<name>[:<bits>]")
+  object cName = vlookup("<name>", vars, KEY, VALUE)
+  if atom(cName) then
+    error_message("writeVariable: Incorrect variable name!", CRITICAL)
+  end if
+  object cBits = vlookup("<bits>", vars, KEY, VALUE)
+  */
+  integer n = find_key(variable, struct[SU_DEF], VAR_NAME)
+  if n = 0 then
+    error_message("writeVariable: Incorrect variable name!", CRITICAL)
+  end if
+  integer offset = struct[SU_DEF][n][VAR_OFFSET]
+  atom ctype = struct[SU_DEF][n][VAR_TYPE]
+  atom p = struct[SU_ADDRESS] + offset
+  pokeVariable(p, ctype, value)
+end procedure
+
+-----------------------------------------------------------------------------
+
+function peekVariable(atom p, atom ctype)
+  object result
     if ctype = #01000001 then       -- 8-bit signed
-      result = append( result, peeks(p) )
+      return peeks(p)
     elsif ctype = #01000002 then       -- 16-bit signed
-      result = append( result, peek2s(p) )
+      return peek2s(p)
     elsif ctype = #01000004 then       -- 32-bit signed
-      result = append( result, peek4s(p) )
+      return peek4s(p)
     elsif ctype = #01000008 then       -- 64-bit signed
-      result = append( result, peek8s(p) )
+      return peek8s(p)
     elsif ctype = #02000001 then       -- 8-bit unsigned
-      result = append( result, peek(p) )
+      return peek(p)
     elsif ctype = #02000002 then       -- 16-bit unsigned
-      result = append( result, peek2u(p) )
+      return peek2u(p)
     elsif ctype = #02000004 then       -- 32-bit unsigned
-      result = append( result, peek4u(p) )
+      return peek4u(p)
     elsif ctype = #02000008 then       -- 64-bit unsigned
-      result = append( result, peek8u(p) )
+      return peek8u(p)
     elsif ctype = #03000001 then       -- pointer
       if sizeof( C_POINTER )=4 then     -- 32-bit
-        result = append( result, peek4s(p) )
+        return peek4s(p)
       elsif sizeof( C_POINTER )=8 then  -- 64-bit
-        result = append( result, peek8s(p) )
+        return peek8s(p)
       end if
     elsif ctype = #03000002 then       -- 64-bit integer
-      result = append( result, peek8u(p) )
+      return peek8u(p)
     elsif ctype = #03000004 then       -- 32-bit float
-      result = append( result, float32_to_atom(peek({p, 4})) )
+      return float32_to_atom(peek({p, 4}))
     elsif ctype = #03000008 then       -- 64-bit float
-      result = append( result, float64_to_atom(peek({p, 8})) )
+      return float64_to_atom(peek({p, 8}))
+    else
+      error_message("peekVariable: Invalid ctype", CRITICAL)
+      return 0  -- useless but needed for OEU parser
     end if
-    p += sizeof(ctype)
+end function
+
+-----------------------------------------------------------------------------
+
+-- reads data in memory according to a structure definition
+-- automatically sizes structure to OEU version and OS Architecture
+-- ex: sequence s = readStructure(struct)
+public function readStructure(sequence struct)
+  log_printf("readStructure(%s)\n", {object_dump(struct)}, EXTENSIVE)
+  sequence  result = {}
+  for i = 1 to length(struct[SU_DEF]) do
+    integer offset = struct[SU_DEF][i][VAR_OFFSET]
+    atom ctype = struct[SU_DEF][i][VAR_TYPE]
+    atom p = struct[SU_ADDRESS] + offset
+    result = append( result, peekVariable(p, ctype))
   end for
   return result
+end function
+
+-----------------------------------------------------------------------------
+
+public function readVariable(sequence struct, sequence variable)
+  log_printf("readVariable(%s)\n", {object_dump(struct), object_dump(variable)}, EXTENSIVE)
+  integer n = find_key(variable, struct[SU_DEF], VAR_NAME)
+  if n = 0 then
+    error_message("readVariable: Incorrect variable name!", CRITICAL)
+  end if
+  integer offset = struct[SU_DEF][n][VAR_OFFSET]
+  atom ctype = struct[SU_DEF][n][VAR_TYPE]
+  atom p = struct[SU_ADDRESS] + offset
+  return peekVariable(p, ctype)
 end function
 
 -----------------------------------------------------------------------------
@@ -373,12 +431,12 @@ end function
 -- frees memory according to a structure definition
 -- automatically frees pointers included in the structure
 -- according to OEU version and OS Architecture
--- ex: freeStructure(p, {T_HANDLE, T_INT, T_INT}, {hwnd, 12, 25} )
+-- ex: freeStructure(struct)
 public procedure freeStructure(sequence struct)
   log_printf("freeStructure(%s)\n", {object_dump(struct)}, EXTENSIVE)
   for i = 1 to length(struct[SU_DEF]) do
-    integer offset = struct[SU_DEF][i][1]
-    atom ctype = struct[SU_DEF][i][2]
+    integer offset = struct[SU_DEF][i][VAR_OFFSET]
+    atom ctype = struct[SU_DEF][i][VAR_TYPE]
     atom p = struct[SU_ADDRESS] + offset
     if find(struct[SU_DEF][i], {T_POINTER, T_HANDLE, T_LONG_PTR, T_PARAM}) then
       free(p)
