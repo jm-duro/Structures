@@ -362,11 +362,11 @@ end function
 -- dumps a sequence in hex form to the specified output</digest>
 -- example:
 -- hex_dump("0123456789ABCDEF"&0&1&2&3&4)
--- Address   0  1  2  3  4  5  6  7  8   9  A  B  C  D  E  F  |  0123456789ABCDEF
--- ------------------------------------------------------------------------------
--- 000000:  30 31 32 33 34 35 36 37 38  39 41 42 43 44 45 46  |  0123456789ABCDEF
--- 000010:  00 01 02 03 04                                    |  .....
-public procedure hexDump(sequence data, integer offset=0, integer level=debug_level)
+-- Address     0  1  2  3  4  5  6  7  8   9  A  B  C  D  E  F  |  0123456789ABCDEF
+-- --------------------------------------------------------------------------------
+-- 00000000:  30 31 32 33 34 35 36 37 38  39 41 42 43 44 45 46  |  0123456789ABCDEF
+-- 00000010:  00 01 02 03 04                                    |  .....
+public procedure hexDump(sequence data, atom offset=0, integer level=debug_level)
   sequence address, binary, ascii
   integer lg = length(data)
   if (f_debug = 0) or (debug_level = NO_DEBUG) then return end if
@@ -375,9 +375,9 @@ public procedure hexDump(sequence data, integer offset=0, integer level=debug_le
   integer stop = ceil((offset+lg)/16)*16
   -- printf(1, "start = %06x, stop = %06x\n", {start, stop})
 
-  puts(f_debug, "\nAddress   0  1  2  3  4  5  6  7   8  9  A  B  C  D  E  F  |  0123456789ABCDEF\n")
-  puts(f_debug, repeat('-', 78) & "\n")
-  address = sprintf("%06x: ", start)
+  puts(f_debug, "\nAddress     0  1  2  3  4  5  6  7   8  9  A  B  C  D  E  F  |  0123456789ABCDEF\n")
+  puts(f_debug, repeat('-', 80) & "\n")
+  address = sprintf("%08x: ", start)
   binary = ""
   ascii  = "  |  "
   for i = start to stop-1 do
@@ -399,7 +399,7 @@ public procedure hexDump(sequence data, integer offset=0, integer level=debug_le
     end if
     if (remainder(i, 16) = 15) then
       puts(f_debug, address&binary&ascii&"\n")
-      address = sprintf("%06x: ", floor((i+1)/16)*16)
+      address = sprintf("%08x: ", floor((i+1)/16)*16)
       binary = ""
       ascii  = "  |  "
     end if

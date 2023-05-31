@@ -65,6 +65,7 @@ constant ALIASES = {
   {"unsigned", T_UINT},
   {"unsigned_int", T_UINT},
   {"dword", T_UINT},
+  {"BOOL", T_UINT},
   {"long", T_LONG},
   {"long_int", T_LONG},
   {"signed_long", T_LONG},
@@ -88,11 +89,12 @@ constant ALIASES = {
   {"WPARAM", T_PARAM},
   {"HANDLE", T_HANDLE},
   {"HWND", T_HANDLE},
+  {"HDC", T_HANDLE},
   {"HRESULT", T_HRESULT}
 }
 
 public constant TYPE_DEFINITION = {
--- name,          LNX_4_1_64, LNX_4_1_32, LNX_4_0_32, WIN_4_1_64, WIN_4_1_32, WIN_4_0_32
+-- name,          LNX_4_1_64,    LNX_4_1_32,    LNX_4_0_32, WIN_4_1_64,    WIN_4_1_32,    WIN_4_0_32
   {T_CHAR       , #01000001,     #01000001,     #01000001,  #01000001,     #01000001,     #01000001},
   {T_UCHAR      , #02000001,     #02000001,     #02000001,  #02000001,     #02000001,     #02000001},
   {T_SHORT      , #01000002,     #01000002,     #01000002,  #01000002,     #01000002,     #01000002},
@@ -114,8 +116,10 @@ public constant TYPE_DEFINITION = {
 
 public constant DEF_TYPE=1, DEF_TYPE_NAME=2, DEF_VAR_NAME=3, DEF_BLOCK=4
 public constant STRUCT=1, UNION=2
-public constant SU_NAME=1, SU_DEF=2, SU_ADDRESS=3
-public constant VAR_OFFSET=1, VAR_NAME=2, VAR_BITS=3, VAR_TYPE=4
+public constant SU_NAME=1, SU_SIZE=2, SU_DEF=3, SU_ADDRESS=4
+public constant VAR_OFFSET=1, VAR_NAME=2, VAR_BITS=3, VAR_TYPE=4, VAR_SIZE=5
+
+sequence ListOfStructures = {}
 
 --------------------------------------------------------------------------------
 
@@ -250,64 +254,153 @@ public function decompose(sequence cstr)
   return result
 end function
 
+-----------------------------------------------------------------------------
+
+public function getStructureTypeName(integer struct, integer n)
+  log_printf("getStructureTypeName(%d, %d)\n", {struct, n}, VERBOSE)
+  if struct = 0 then
+    error_message("getStructureTypeName: struct cannot be null!", CRITICAL)
+  end if
+  analyze_object(ListOfStructures, sprintf("ListOfStructures[%d]", {struct}), VERBOSE)
+  return ListOfStructures[struct][SU_DEF][n][DEF_TYPE_NAME]
+end function
+
+-----------------------------------------------------------------------------
+
+public function getStructureVariableName(integer struct, integer n)
+  log_printf("getStructureVariableName(%d, %d)\n", {struct, n}, VERBOSE)
+  if struct = 0 then
+    error_message("getStructureVariableName: struct cannot be null!", CRITICAL)
+  end if
+  analyze_object(ListOfStructures, sprintf("ListOfStructures[%d]", {struct}), VERBOSE)
+  return ListOfStructures[struct][SU_DEF][n][DEF_VAR_NAME]
+end function
+
+-----------------------------------------------------------------------------
+
+public function getStructureLength(integer struct)
+  log_printf("getStructureLength(%d)\n", {struct}, VERBOSE)
+  if struct = 0 then
+    error_message("getStructureLength: struct cannot be null!", CRITICAL)
+  end if
+  analyze_object(ListOfStructures, sprintf("ListOfStructures[%d]", {struct}), VERBOSE)
+  return ListOfStructures[struct][SU_SIZE]
+end function
+
+-----------------------------------------------------------------------------
+
+public function getStructureAddress(integer struct)
+  log_printf("getStructureAddress(%d)\n", {struct}, VERBOSE)
+  if struct = 0 then
+    error_message("getStructureAddress: struct cannot be null!", CRITICAL)
+  end if
+  analyze_object(ListOfStructures, sprintf("ListOfStructures[%d]", {struct}), VERBOSE)
+  return ListOfStructures[struct][SU_ADDRESS]
+end function
 --------------------------------------------------------------------------------
 
--- allocates memory according to a structure definition
+-- creates a structure definition
 -- automatically sizes structure to OEU version and OS Architecture
--- ex: atom p = allocateStructure(
+-- ex: atom p = createStructure(
 --   "struct _mydata {" &
 --   "  int a;" &
 --   "  float b;" &
 --   "  char c;" &
 --   "} bar;")
-public function allocateStructure(sequence struct)
-  log_printf("allocateStructure(%s)\n", {struct}, EXTENSIVE)
-  atom p = 0
-  sequence def = decompose(struct)
+public function createStructure(sequence cStruct, atom p)
+  log_printf("createStructure(%s)\n", {cStruct}, EXTENSIVE)
+  sequence def = decompose(cStruct)
   if def[DEF_TYPE] != STRUCT then return 0 end if
   integer lg = 0
   sequence definition = {}
   for i = 1 to length(def[DEF_BLOCK]) do
-    sequence vars = extract_vars(def[DEF_BLOCK][i], "<type> <name>[:<bits>];")
+    sequence vars = extract_vars(def[DEF_BLOCK][i], "<type>[\\[<size>\\]] <name>[:<bits>];")
     dump_array(vars, "vars", VERBOSE)
     object cType = vlookup("<type>", vars, KEY, VALUE)
     if atom(cType) then
-      error_message("allocateStructure: Incorrect variable type!", CRITICAL)
+      error_message("createStructure: Incorrect variable type!", CRITICAL)
+    end if
+    object cSize = vlookup("<size>", vars, KEY, VALUE, 1)
+    if sequence(cSize) then
+      cSize = to_number(cSize)
     end if
     object cName = vlookup("<name>", vars, KEY, VALUE)
     if atom(cName) then
-      error_message("allocateStructure: Incorrect variable name!", CRITICAL)
+      error_message("createStructure: Incorrect variable name!", CRITICAL)
     end if
     object cBits = vlookup("<bits>", vars, KEY, VALUE)
+    log_printf("createStructure: cType = %s, cSize = %d, cName = %s, cBits = %d\n", {cType, cSize, cName, cBits}, DEBUG)
+    atom eutype = 0
     object varType = vlookup(cType, ALIASES, 1, 2)
     if varType = 0 then
-      error_message(sprintf("allocateStructure: No corresponding EU type found for C type %s!", {cType}), CRITICAL)
+      -- check if varType refers to another structure
+      integer n = find_key(cType, ListOfStructures, SU_NAME)
+      if n = 0 then
+        error_message(sprintf("createStructure: No corresponding EU type found for C type %s!", {cType}), CRITICAL)
+      end if
+      eutype = -n
+      log_printf("createStructure: lg = %d, euType = %d\n", {lg, eutype}, DEBUG)
+      definition = append(definition, {lg, cName, cBits, eutype, cSize})
+      lg += ListOfStructures[n][SU_SIZE] * cSize
+    else
+      eutype = vlookup(varType, TYPE_DEFINITION, 1, eu_version+1)
+      log_printf("createStructure: lg = %d, euType = #%08x\n", {lg, eutype}, DEBUG)
+      definition = append(definition, {lg, cName, cBits, eutype, cSize})
+      lg += sizeof(eutype) * cSize
     end if
-    atom eutype = vlookup(varType, TYPE_DEFINITION, 1, eu_version+1)
-    log_printf("allocateStructure: lg = %d, euType = #%08x\n", {lg, cName, cBits, eutype}, DEBUG)
-    definition = append(definition, {lg, cName, cBits, eutype})
-    lg += sizeof(eutype)
   end for
-  if lg then p = allocate(lg) end if
-  log_printf("allocateStructure: {%s, %s, %d)\n", {def[DEF_VAR_NAME], object_dump(definition), p}, DEBUG)
-  return {def[DEF_VAR_NAME], definition, p}
+  log_printf("createStructure: {%s, %d, %s, %d}\n", {def[DEF_TYPE_NAME], lg, object_dump(definition), p}, DEBUG)
+  ListOfStructures = append(ListOfStructures, {def[DEF_TYPE_NAME], lg, definition, p})
+  analyze_object(ListOfStructures, "ListOfStructures", DEBUG)
+  return length(ListOfStructures)
+end function
+
+--------------------------------------------------------------------------------
+
+-- allocates memory according to a structure definition
+-- automatically sizes structure to OEU version and OS Architecture
+-- ex: atom p = allocateStructure(
+--   "cStruct _mydata {" &
+--   "  int a;" &
+--   "  float b;" &
+--   "  char c;" &
+--   "} bar;")
+public function allocateStructure(sequence cStruct)
+  log_printf("allocateStructure(%s)\n", {cStruct}, DEBUG)
+  atom p = 0
+  integer struct = createStructure(cStruct, 0)
+  if ListOfStructures[struct][SU_SIZE] = 0 then
+    error_message("allocateStructure: Struct size cannot be null!", CRITICAL)
+  end if
+  ListOfStructures[struct][SU_ADDRESS] = allocate(ListOfStructures[struct][SU_SIZE])
+  log_printf("allocateStructure: {%s, %d, %s, %d}\n", {ListOfStructures[struct][SU_NAME], ListOfStructures[struct][SU_SIZE],
+             object_dump(ListOfStructures[struct][SU_DEF]), ListOfStructures[struct][SU_ADDRESS]}, DEBUG)
+  return struct
 end function
 
 -----------------------------------------------------------------------------
 
 procedure pokeVariable(atom p, atom ctype, object value)
+  log_printf("pokeVariable(#%08x, #%08x, %s)\n", {p, ctype, object_dump(value)}, DEBUG)
+  if p = 0 then
+    error_message("pokeVariable: p cannot be null!", CRITICAL)
+  end if
   if (ctype = #01000001) or (ctype = #02000001) then  -- 8-bit signed, unsigned
     poke(p, value)
   elsif (ctype = #01000002) or (ctype = #02000002) then  -- 16-bit signed, unsigned
     poke2(p, value)
   elsif (ctype = #01000004) or (ctype = #02000004) then  -- 32-bit signed, unsigned
     poke4(p, value)
-  elsif (ctype = #01000008) or (ctype = #02000008) then  -- 64-bit signed, unsigned
-    poke8(p, value)
-  elsif ctype = #03000001 then       -- pointer
-    if sizeof( C_POINTER )=4 then     -- 32-bit
+  elsif (ctype = #01000008) or (ctype = #02000008) then  -- 64-bit signed, unsigned on Linux x64, 32-bit elsewhere
+    if sizeof(C_LONG)=4 then     -- 32-bit
       poke4(p, value)
-    elsif sizeof( C_POINTER )=8 then  -- 64-bit
+    elsif sizeof(C_LONG)=8 then  -- 64-bit
+      poke8(p, value)
+    end if
+  elsif ctype = #03000001 then       -- pointer
+    if sizeof(C_POINTER)=4 then     -- 32-bit
+      poke4(p, value)
+    elsif sizeof(C_POINTER)=8 then  -- 64-bit
       poke8(p, value)
     end if
   elsif ctype = #03000002 then       -- 64-bit integer
@@ -324,20 +417,26 @@ end procedure
 -- writes data in memory according to a structure definition
 -- automatically sizes structure to OEU version and OS Architecture
 -- ex: writeStructure(struct, {hwnd, 12, 25} )
-public procedure writeStructure(sequence struct, sequence values)
-  log_printf("writeStructure(%s, %s)\n", {object_dump(struct), object_dump(values)}, EXTENSIVE)
-  for i = 1 to length(struct[SU_DEF]) do
-    integer offset = struct[SU_DEF][i][VAR_OFFSET]
-    atom ctype = struct[SU_DEF][i][VAR_TYPE]
-    atom p = struct[SU_ADDRESS] + offset
-    pokeVariable(p, ctype, values[i])
+public procedure writeStructure(integer struct, sequence values)
+  log_printf("writeStructure(%d, %s)\n", {struct, object_dump(values)}, DEBUG)
+  for i = 1 to length(ListOfStructures[struct][SU_DEF]) do
+    integer offset = ListOfStructures[struct][SU_DEF][i][VAR_OFFSET]
+    atom ctype = ListOfStructures[struct][SU_DEF][i][VAR_TYPE]
+    atom p = ListOfStructures[struct][SU_ADDRESS] + offset
+    log_printf("writeStructure: offset = %d, ctype = #%08x, p = #%08x\n", {offset, ctype, p}, DEBUG)
+    if ctype > 0 then
+      pokeVariable(p, ctype, values[i])
+    else               -- structure
+      log_printf("writeStructure: ListOfStructures[%d][SU_ADDRESS] = %d\n", {-ctype, ListOfStructures[-ctype][SU_ADDRESS]}, DEBUG)
+      poke_pointer(p, ListOfStructures[-ctype][SU_ADDRESS])
+    end if
   end for
 end procedure
 
 -----------------------------------------------------------------------------
 
-public procedure writeVariable(sequence struct, sequence variable, object value)
-  log_printf("writeVariable(%s, %s, %s)\n", {object_dump(struct), object_dump(variable), object_dump(value)}, EXTENSIVE)
+public procedure writeVariable(integer struct, sequence variable, object value)
+  log_printf("writeVariable(%d, %s, %s)\n", {struct, object_dump(variable), object_dump(value)}, DEBUG)
   /*
   -- bits is not supported yet so no need to extract vars
   sequence vars = extract_vars(element, "<name>[:<bits>]")
@@ -347,19 +446,28 @@ public procedure writeVariable(sequence struct, sequence variable, object value)
   end if
   object cBits = vlookup("<bits>", vars, KEY, VALUE)
   */
-  integer n = find_key(variable, struct[SU_DEF], VAR_NAME)
+  integer n = find_key(variable, ListOfStructures[struct][SU_DEF], VAR_NAME)
   if n = 0 then
     error_message("writeVariable: Incorrect variable name!", CRITICAL)
   end if
-  integer offset = struct[SU_DEF][n][VAR_OFFSET]
-  atom ctype = struct[SU_DEF][n][VAR_TYPE]
-  atom p = struct[SU_ADDRESS] + offset
-  pokeVariable(p, ctype, value)
+  integer offset = ListOfStructures[struct][SU_DEF][n][VAR_OFFSET]
+  atom ctype = ListOfStructures[struct][SU_DEF][n][VAR_TYPE]
+  atom p = ListOfStructures[struct][SU_ADDRESS] + offset
+  log_printf("writeVariable: offset = %d, ctype = #%08x, p = #%08x\n", {offset, ctype, p}, DEBUG)
+  if ctype > 0 then
+    pokeVariable(p, ctype, value)
+  else
+    poke_pointer(p, ListOfStructures[-ctype][SU_ADDRESS])
+  end if
 end procedure
 
 -----------------------------------------------------------------------------
 
 function peekVariable(atom p, atom ctype)
+  log_printf("peekVariable(#%08x, #%08x)\n", {p, ctype}, DEBUG)
+  if p = 0 then
+    error_message("peekVariable: p cannot be null!", CRITICAL)
+  end if
   object result
     if ctype = #01000001 then       -- 8-bit signed
       return peeks(p)
@@ -368,7 +476,11 @@ function peekVariable(atom p, atom ctype)
     elsif ctype = #01000004 then       -- 32-bit signed
       return peek4s(p)
     elsif ctype = #01000008 then       -- 64-bit signed
-      return peek8s(p)
+      if sizeof(C_LONG)=4 then     -- 32-bit
+        return peek4s(p)
+      elsif sizeof(C_LONG)=8 then  -- 64-bit
+        return peek8s(p)
+      end if
     elsif ctype = #02000001 then       -- 8-bit unsigned
       return peek(p)
     elsif ctype = #02000002 then       -- 16-bit unsigned
@@ -376,7 +488,11 @@ function peekVariable(atom p, atom ctype)
     elsif ctype = #02000004 then       -- 32-bit unsigned
       return peek4u(p)
     elsif ctype = #02000008 then       -- 64-bit unsigned
-      return peek8u(p)
+      if sizeof(C_LONG)=4 then     -- 32-bit
+        return peek4u(p)
+      elsif sizeof(C_LONG)=8 then  -- 64-bit
+        return peek8u(p)
+      end if
     elsif ctype = #03000001 then       -- pointer
       if sizeof( C_POINTER )=4 then     -- 32-bit
         return peek4s(p)
@@ -400,30 +516,42 @@ end function
 -- reads data in memory according to a structure definition
 -- automatically sizes structure to OEU version and OS Architecture
 -- ex: sequence s = readStructure(struct)
-public function readStructure(sequence struct)
-  log_printf("readStructure(%s)\n", {object_dump(struct)}, EXTENSIVE)
+public function readStructure(integer struct)
+  log_printf("readStructure(%d)\n", {struct}, DEBUG)
+  hexDump(peek({ListOfStructures[struct][SU_ADDRESS], ListOfStructures[struct][SU_SIZE]}), ListOfStructures[struct][SU_ADDRESS], DEBUG)
   sequence  result = {}
-  for i = 1 to length(struct[SU_DEF]) do
-    integer offset = struct[SU_DEF][i][VAR_OFFSET]
-    atom ctype = struct[SU_DEF][i][VAR_TYPE]
-    atom p = struct[SU_ADDRESS] + offset
-    result = append( result, peekVariable(p, ctype))
+  for i = 1 to length(ListOfStructures[struct][SU_DEF]) do
+    integer offset = ListOfStructures[struct][SU_DEF][i][VAR_OFFSET]
+    atom ctype = ListOfStructures[struct][SU_DEF][i][VAR_TYPE]
+    atom p = ListOfStructures[struct][SU_ADDRESS] + offset
+    log_printf("readStructure: offset = %d, ctype = #%08x, p = #%08x\n", {offset, ctype, p}, DEBUG)
+    if ctype > 0 then
+      result = append( result, peekVariable(p, ctype))
+    else               -- structure
+      result = append( result, peek_pointer(p))  -- ListOfStructures[-ctype][SU_ADDRESS]
+    end if
   end for
+  analyze_object(result, "result", DEBUG)
   return result
 end function
 
 -----------------------------------------------------------------------------
 
-public function readVariable(sequence struct, sequence variable)
-  log_printf("readVariable(%s)\n", {object_dump(struct), object_dump(variable)}, EXTENSIVE)
-  integer n = find_key(variable, struct[SU_DEF], VAR_NAME)
+public function readVariable(integer struct, sequence variable)
+  log_printf("readVariable(%d, %s)\n", {struct, object_dump(variable)}, DEBUG)
+  integer n = find_key(variable, ListOfStructures[struct][SU_DEF], VAR_NAME)
   if n = 0 then
     error_message("readVariable: Incorrect variable name!", CRITICAL)
   end if
-  integer offset = struct[SU_DEF][n][VAR_OFFSET]
-  atom ctype = struct[SU_DEF][n][VAR_TYPE]
-  atom p = struct[SU_ADDRESS] + offset
-  return peekVariable(p, ctype)
+  integer offset = ListOfStructures[struct][SU_DEF][n][VAR_OFFSET]
+  atom ctype = ListOfStructures[struct][SU_DEF][n][VAR_TYPE]
+  atom p = ListOfStructures[struct][SU_ADDRESS] + offset
+  log_printf("readVariable: offset = %d, ctype = #%08x, p = #%08x\n", {offset, ctype, p}, DEBUG)
+  if ctype > 0 then
+    return peekVariable(p, ctype)
+  else
+    return peek_pointer(p)
+  end if
 end function
 
 -----------------------------------------------------------------------------
@@ -432,15 +560,15 @@ end function
 -- automatically frees pointers included in the structure
 -- according to OEU version and OS Architecture
 -- ex: freeStructure(struct)
-public procedure freeStructure(sequence struct)
-  log_printf("freeStructure(%s)\n", {object_dump(struct)}, EXTENSIVE)
-  for i = 1 to length(struct[SU_DEF]) do
-    integer offset = struct[SU_DEF][i][VAR_OFFSET]
-    atom ctype = struct[SU_DEF][i][VAR_TYPE]
-    atom p = struct[SU_ADDRESS] + offset
-    if find(struct[SU_DEF][i], {T_POINTER, T_HANDLE, T_LONG_PTR, T_PARAM}) then
+public procedure freeStructure(integer struct)
+  log_printf("freeStructure(%d)\n", {struct}, DEBUG)
+  for i = 1 to length(ListOfStructures[struct][SU_DEF]) do
+    integer offset = ListOfStructures[struct][SU_DEF][i][VAR_OFFSET]
+    atom ctype = ListOfStructures[struct][SU_DEF][i][VAR_TYPE]
+    atom p = ListOfStructures[struct][SU_ADDRESS] + offset
+    if find(ListOfStructures[struct][SU_DEF][i], {T_POINTER, T_HANDLE, T_LONG_PTR, T_PARAM}) then
       free(p)
     end if
   end for
-  free(struct[SU_ADDRESS])
+  free(ListOfStructures[struct][SU_ADDRESS])
 end procedure

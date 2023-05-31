@@ -1,0 +1,187 @@
+allocateStructure(struct RECT {long left;long top;long right;long bottom;})
+createStructure: cType = long, cSize = 1, cName = left, cBits = 0
+createStructure: lg = 0, euType = #01000008
+createStructure: cType = long, cSize = 1, cName = top, cBits = 0
+createStructure: lg = 4, euType = #01000008
+createStructure: cType = long, cSize = 1, cName = right, cBits = 0
+createStructure: lg = 8, euType = #01000008
+createStructure: cType = long, cSize = 1, cName = bottom, cBits = 0
+createStructure: lg = 12, euType = #01000008
+createStructure: {RECT, 16, {{0, "left", 0, 16777224, 1}, {4, "top", 0, 16777224, 1}, {8, "right", 0, 16777224, 1}, {12, "bottom", 0, 16777224, 1}}, 0}
+ListOfStructures =
+  [1]
+  .  [1] "RECT"
+  .  [2] 16
+  .  [3]
+  .  .  [1]
+  .  .  .  [1] 0
+  .  .  .  [2] "left"
+  .  .  .  [3] 0
+  .  .  .  [4] 16777224
+  .  .  .  [5] 1
+  .  .  [2]
+  .  .  .  [1] 4
+  .  .  .  [2] "top"
+  .  .  .  [3] 0
+  .  .  .  [4] 16777224
+  .  .  .  [5] 1
+  .  .  [3]
+  .  .  .  [1] 8
+  .  .  .  [2] "right"
+  .  .  .  [3] 0
+  .  .  .  [4] 16777224
+  .  .  .  [5] 1
+  .  .  [4]
+  .  .  .  [1] 12
+  .  .  .  [2] "bottom"
+  .  .  .  [3] 0
+  .  .  .  [4] 16777224
+  .  .  .  [5] 1
+  .  [4] 0
+allocateStructure: {RECT, 16, {{0, "left", 0, 16777224, 1}, {4, "top", 0, 16777224, 1}, {8, "right", 0, 16777224, 1}, {12, "bottom", 0, 16777224, 1}}, 46207312}
+writeStructure(1, {10,20,50'2',100'd'})
+writeStructure: offset = 0, ctype = #01000008, p = #02C11150
+pokeVariable(#02C11150, #01000008, 10)
+writeStructure: offset = 4, ctype = #01000008, p = #02C11154
+pokeVariable(#02C11154, #01000008, 20)
+writeStructure: offset = 8, ctype = #01000008, p = #02C11158
+pokeVariable(#02C11158, #01000008, 50'2')
+writeStructure: offset = 12, ctype = #01000008, p = #02C1115C
+pokeVariable(#02C1115C, #01000008, 100'd')
+readStructure(1)
+
+Address     0  1  2  3  4  5  6  7   8  9  A  B  C  D  E  F  |  0123456789ABCDEF
+--------------------------------------------------------------------------------
+02C11150:  0A 00 00 00 14 00 00 00  32 00 00 00 64 00 00 00  |  ........2...d...
+
+readStructure: offset = 0, ctype = #01000008, p = #02C11150
+peekVariable(#02C11150, #01000008)
+readStructure: offset = 4, ctype = #01000008, p = #02C11154
+peekVariable(#02C11154, #01000008)
+readStructure: offset = 8, ctype = #01000008, p = #02C11158
+peekVariable(#02C11158, #01000008)
+readStructure: offset = 12, ctype = #01000008, p = #02C1115C
+peekVariable(#02C1115C, #01000008)
+result = {10,20,50'2',100'd'}
+left = 10, top = 20, right = 50, bottom = 100
+allocateStructure(struct PAINTSTRUCT {long hdc;BOOL fErase;RECT rcPaint;BOOL fRestore;BOOL fIncUpdate;byte[32] rgbReserved;})
+createStructure: cType = long, cSize = 1, cName = hdc, cBits = 0
+createStructure: lg = 0, euType = #01000008
+createStructure: cType = BOOL, cSize = 1, cName = fErase, cBits = 0
+createStructure: lg = 4, euType = #02000004
+createStructure: cType = RECT, cSize = 1, cName = rcPaint, cBits = 0
+createStructure: lg = 8, euType = -1
+createStructure: cType = BOOL, cSize = 1, cName = fRestore, cBits = 0
+createStructure: lg = 24, euType = #02000004
+createStructure: cType = BOOL, cSize = 1, cName = fIncUpdate, cBits = 0
+createStructure: lg = 28, euType = #02000004
+createStructure: cType = byte, cSize = 32, cName = rgbReserved, cBits = 0
+createStructure: lg = 32, euType = #02000001
+createStructure: {PAINTSTRUCT, 64, {{0, "hdc", 0, 16777224, 1}, {4, "fErase", 0, 33554436, 1}, {8, "rcPaint", 0, -1, 1}, {24, "fRestore", 0, 33554436, 1}, {28, "fIncUpdate", 0, 33554436, 1}, {32' ', "rgbReserved", 0, 33554433, 32' '}}, 0}
+ListOfStructures =
+  [1]
+  .  [1] "RECT"
+  .  [2] 16
+  .  [3]
+  .  .  [1]
+  .  .  .  [1] 0
+  .  .  .  [2] "left"
+  .  .  .  [3] 0
+  .  .  .  [4] 16777224
+  .  .  .  [5] 1
+  .  .  [2]
+  .  .  .  [1] 4
+  .  .  .  [2] "top"
+  .  .  .  [3] 0
+  .  .  .  [4] 16777224
+  .  .  .  [5] 1
+  .  .  [3]
+  .  .  .  [1] 8
+  .  .  .  [2] "right"
+  .  .  .  [3] 0
+  .  .  .  [4] 16777224
+  .  .  .  [5] 1
+  .  .  [4]
+  .  .  .  [1] 12
+  .  .  .  [2] "bottom"
+  .  .  .  [3] 0
+  .  .  .  [4] 16777224
+  .  .  .  [5] 1
+  .  [4] 46207312
+  [2]
+  .  [1] "PAINTSTRUCT"
+  .  [2] 64'@'
+  .  [3]
+  .  .  [1]
+  .  .  .  [1] 0
+  .  .  .  [2] "hdc"
+  .  .  .  [3] 0
+  .  .  .  [4] 16777224
+  .  .  .  [5] 1
+  .  .  [2]
+  .  .  .  [1] 4
+  .  .  .  [2] "fErase"
+  .  .  .  [3] 0
+  .  .  .  [4] 33554436
+  .  .  .  [5] 1
+  .  .  [3]
+  .  .  .  [1] 8
+  .  .  .  [2] "rcPaint"
+  .  .  .  [3] 0
+  .  .  .  [4] -1
+  .  .  .  [5] 1
+  .  .  [4]
+  .  .  .  [1] 24
+  .  .  .  [2] "fRestore"
+  .  .  .  [3] 0
+  .  .  .  [4] 33554436
+  .  .  .  [5] 1
+  .  .  [5]
+  .  .  .  [1] 28
+  .  .  .  [2] "fIncUpdate"
+  .  .  .  [3] 0
+  .  .  .  [4] 33554436
+  .  .  .  [5] 1
+  .  .  [6]
+  .  .  .  [1] 32' '
+  .  .  .  [2] "rgbReserved"
+  .  .  .  [3] 0
+  .  .  .  [4] 33554433
+  .  .  .  [5] 32' '
+  .  [4] 0
+allocateStructure: {PAINTSTRUCT, 64, {{0, "hdc", 0, 16777224, 1}, {4, "fErase", 0, 33554436, 1}, {8, "rcPaint", 0, -1, 1}, {24, "fRestore", 0, 33554436, 1}, {28, "fIncUpdate", 0, 33554436, 1}, {32' ', "rgbReserved", 0, 33554433, 32' '}}, 45220504}
+writeStructure(2, {0, 1, 1, 0, 0, {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0}})
+writeStructure: offset = 0, ctype = #01000008, p = #02B20298
+pokeVariable(#02B20298, #01000008, 0)
+writeStructure: offset = 4, ctype = #02000004, p = #02B2029C
+pokeVariable(#02B2029C, #02000004, 1)
+writeStructure: offset = 8, ctype = #FFFFFFFF, p = #02B202A0
+writeStructure: ListOfStructures[1][SU_ADDRESS] = 46207312
+writeStructure: offset = 24, ctype = #02000004, p = #02B202B0
+pokeVariable(#02B202B0, #02000004, 0)
+writeStructure: offset = 28, ctype = #02000004, p = #02B202B4
+pokeVariable(#02B202B4, #02000004, 0)
+writeStructure: offset = 32, ctype = #02000001, p = #02B202B8
+pokeVariable(#02B202B8, #02000001, {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0})
+readStructure(2)
+
+Address     0  1  2  3  4  5  6  7   8  9  A  B  C  D  E  F  |  0123456789ABCDEF
+--------------------------------------------------------------------------------
+02B20290:                           00 00 00 00 01 00 00 00  |          ........
+02B202A0:  50 11 C1 02 F8 0C 6B 02  01 00 00 00 42 00 00 00  |  P.....k.....B...
+02B202B0:  00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00  |  ................
+02B202C0:  00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00  |  ................
+02B202D0:  00 00 00 00 00 00 00 00                           |  ........        
+
+readStructure: offset = 0, ctype = #01000008, p = #02B20298
+peekVariable(#02B20298, #01000008)
+readStructure: offset = 4, ctype = #02000004, p = #02B2029C
+peekVariable(#02B2029C, #02000004)
+readStructure: offset = 8, ctype = #FFFFFFFF, p = #02B202A0
+readStructure: offset = 24, ctype = #02000004, p = #02B202B0
+peekVariable(#02B202B0, #02000004)
+readStructure: offset = 28, ctype = #02000004, p = #02B202B4
+peekVariable(#02B202B4, #02000004)
+readStructure: offset = 32, ctype = #02000001, p = #02B202B8
+peekVariable(#02B202B8, #02000001)
+result = {0,1,46207312,0,0,0}

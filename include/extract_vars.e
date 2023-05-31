@@ -40,13 +40,33 @@ function split_template(sequence s)
       result = append(result, {variable & ">", option_level, "", 0, 0})
       fixed = ""
     elsif s[i] = '[' then
-      result = add_fixed(result, fixed, option_level)
-      fixed = ""
-      option_level += 1
+      if i = 1 then
+        result = add_fixed(result, fixed, option_level)
+        fixed = ""
+        option_level += 1
+      else
+        if s[i-1] = '\\' then
+          fixed = remove(fixed, length(fixed)) & s[i]
+        else
+          result = add_fixed(result, fixed, option_level)
+          fixed = ""
+          option_level += 1
+        end if
+      end if
     elsif s[i] = ']' then
-      result = add_fixed(result, fixed, option_level)
-      fixed = ""
-      option_level -= 1
+      if i = 1 then
+        result = add_fixed(result, fixed, option_level)
+        fixed = ""
+        option_level -= 1
+      else
+        if s[i-1] = '\\' then
+          fixed = remove(fixed, length(fixed)) & s[i]
+        else
+          result = add_fixed(result, fixed, option_level)
+          fixed = ""
+          option_level -= 1
+        end if
+      end if
     else
       if inside_variable then
         variable &= s[i]
